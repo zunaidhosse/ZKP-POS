@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Invoice - ZKTeco</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <!-- First-visit install/download popup -->
+    <div id="pwaInstallModal" class="pwa-modal hidden" role="dialog" aria-modal="true" aria-labelledby="pwaTitle">
+      <div class="pwa-modal-content">
+        <h2 id="pwaTitle">Get the Invoice App</h2>
+        <p class="pwa-message">Install this Progressive Web App for offline use and quick access. Tap "Download from GitHub" to visit the repository and install.</p>
+        <div class="pwa-actions">
+          <a id="githubLink" class="pwa-btn pwa-primary" target="_blank" rel="noopener" href="https://github.com/">Download from GitHub</a>
+          <button id="pwaDismiss" class="pwa-btn">Maybe later</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Item Library Modal -->
+    <div id="itemLibraryModal" class="pwa-modal hidden" role="dialog" aria-modal="true">
+      <div class="pwa-modal-content" style="max-width: 600px;">
+        <h2>Item Library</h2>
+        <div style="margin-bottom: 20px;">
+          <div style="display: grid; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="newItemCode" placeholder="Item Code" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <input type="text" id="newItemName" placeholder="Item Name (English/Arabic)" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <input type="number" id="newItemPrice" placeholder="Item Price (SAR)" step="0.01" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+          </div>
+          <button id="saveItemBtn" class="pwa-btn pwa-primary" style="width: 100%;">Save Item</button>
+        </div>
+        <div id="savedItemsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
+          <!-- Saved items will appear here -->
+        </div>
+        <button id="closeLibraryBtn" class="pwa-btn">Close</button>
+      </div>
+    </div>
+
+    <!-- Quick Info Modal (before download/print) -->
+    <div id="quickInfoModal" class="pwa-modal hidden" role="dialog" aria-modal="true">
+      <div class="pwa-modal-content quick-info-content">
+        <h2>Invoice Details</h2>
+        <p style="font-size: 14px; color: #666; margin-bottom: 20px;">Fill in the details below</p>
+        <div class="quick-info-fields">
+          <div class="field-group">
+            <label for="quickName">Name</label>
+            <input type="text" id="quickName" placeholder="Enter customer name">
+          </div>
+          <div class="field-group">
+            <label for="quickAddress">Address</label>
+            <input type="text" id="quickAddress" placeholder="Enter address">
+          </div>
+          <div class="field-group">
+            <label for="quickDate">Date</label>
+            <input type="text" id="quickDate" placeholder="DD/MM/YYYY HH:MM:SS">
+          </div>
+        </div>
+        <div class="pwa-actions" style="margin-top: 25px;">
+          <button id="quickInfoPrint" class="pwa-btn pwa-primary">Print</button>
+          <button id="quickInfoDownload" class="pwa-btn pwa-primary">Download PNG</button>
+          <button id="quickInfoCancel" class="pwa-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+        <div class="invoice-wrapper">
+            <div id="invoice" class="invoice">
+                <!-- Header Section -->
+                <div class="header">
+                    <div class="header-left">
+                        <div class="logo">
+                            <div class="logo-text">ZKPos</div>
+                            <div class="logo-subtitle">ZKTeco</div>
+                        </div>
+                    </div>
+                    
+                    <div class="header-center">
+                        <div class="company-name-ar">مؤسسة قولم النسيج للمراتب والأسفنج</div>
+                        <div class="company-details" style="line-height:1.3;">
+                            <div>برزان</div>
+                            <div>حائل</div>
+                            <div>55428</div>
+                            <div>VAT: 310286516700003</div>
+                            <div>Contact No: 0538898216</div>
+                        </div>
+                    </div>
+                    
+                    <div class="header-right">
+                        <button id="menuBtn" class="menu-btn" title="Item Library">⋮</button>
+                        <div class="qr-code" id="qrContainer">
+                            <div id="qrcode" title="Scan to see Total Amount Due"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Invoice Title -->
+                <div class="invoice-title">
+                    <div class="title-ar">فاتورة ضريبية مبسطة</div>
+                    <div class="title-en">Simplified Tax Invoice</div>
+                </div>
+
+                <!-- Invoice Meta and Customer Info -->
+                <div class="info-section">
+                    <div class="invoice-meta">
+                        <div class="meta-row">
+                            <span class="label">Invoice Number:</span>
+                            <span class="value" id="invoiceNumber">Loading...</span>
+                        </div>
+                        <div class="meta-row">
+                            <span class="label">Invoice Issue Date:</span>
+                            <input type="text" class="value-input" id="invoiceDate" value="07/11/2025 20:00:30">
+                        </div>
+                        <div class="meta-row">
+                            <span class="label">Vehicle:</span>
+                            <span class="value">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="customer-info">
+                        <div class="customer-title">Customer</div>
+                        <div class="customer-row">
+                            <span class="label">Name:</span>
+                            <input type="text" class="value-input" id="customerName" value="Zunaid hossen meraj">
+                        </div>
+                        <div class="customer-row">
+                            <span class="label">Address:</span>
+                            <input type="text" class="value-input" id="customerAddress" value="*******123">
+                        </div>
+                        <div class="customer-row">
+                            <span class="label">VAT Number:</span>
+                            <span class="value"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items Table -->
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="col-nature">طبيعة السلع أو الخدمات<br>Nature of goods or services</th>
+                            <th class="col-price">سعر الوحدة<br>Unit price</th>
+                            <th class="col-qty">الكمية<br>Quantity</th>
+                            <th class="col-taxable">المبلغ الخاضع للضريبة<br>Taxable Amount</th>
+                            <th class="col-discount">الخصم<br>Discount</th>
+                            <th class="col-rate">معدل الضريبة<br>Tax Rate</th>
+                            <th class="col-tax">مبلغ الضريبة<br>Tax Amount</th>
+                            <th class="col-subtotal">المجموع الفرعي للبند (شامل ضريبة القيمة المضافة)<br>Item Subtotal (Including VAT)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                    </tbody>
+                </table>
+                
+                <div class="table-actions">
+                    <button id="addItemBtn" class="action-btn">+ Add New Item</button>
+                </div>
+
+                <!-- Totals Section -->
+                <div class="totals-section">
+                    <div class="total-row">
+                        <span class="total-label">الإجمالي (غير شامل ضريبة القيمة المضافة) / Total (Excluding VAT):</span>
+                        <span class="total-value" id="totalExcVAT">1086.96 SAR</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">الخصم / Discount:</span>
+                        <span class="total-value" id="totalDiscount">0.00 SAR</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">إجمالي المبلغ الخاضع للضريبة / Total Taxable Amount:</span>
+                        <span class="total-value" id="totalTaxable">1086.96 SAR</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">إجمالي ضريبة القيمة المضافة 15% / Total VAT 15%:</span>
+                        <span class="total-value" id="totalVAT">163.04 SAR</span>
+                    </div>
+                    <div class="total-row final">
+                        <span class="total-label">إجمالي المبلغ المستحق / Total Amount Due:</span>
+                        <span class="total-value" id="totalDue">1250.00 SAR</span>
+                    </div>
+                </div>
+
+                <!-- Barcode -->
+                <div class="barcode">*100000000008753*</div>
+
+                <!-- Footer -->
+                <div class="footer">
+                    <div class="footer-left">
+                        <div>Items: <span id="itemCount">2</span></div>
+                        <div>Cash <span id="cashAmount">1250.00</span></div>
+                        <div>Balance <span id="balance">0.00</span></div>
+                    </div>
+                    
+                    <div class="footer-right">
+                        <div>Status : Paid</div>
+                        <div>Print Date : 07/11/2025 08:00 PM</div>
+                        <div>Admin</div>
+                    </div>
+                </div>
+
+                <!-- Thank you message -->
+                <div class="thank-you">
+                    شكراً لك / Thank you<br>
+                    زرنا مرة أخرى / Visit Again
+                </div>
+
+                <!-- Subtle designer credit for downloaded PNG -->
+                <div class="designer-credit-wrap">
+                    <div class="designer-credit">
+                        Designed by Zunaid Hossen Miraz
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Button -->
+        <div class="controls">
+            <button id="downloadBtn" class="download-btn">Download PNG</button>
+            <button id="printBtn" class="print-btn">Print</button>
+        </div>
+    </div>
+
+    <!-- Load modules in dependency order -->
+    <script src="calculations.js"></script>
+    <script src="items.js"></script>
+    <script src="modals.js"></script>
+    <script src="download.js"></script>
+    <script src="pwa.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
